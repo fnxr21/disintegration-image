@@ -5,43 +5,59 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image/jpeg"
+	"image/png"
+	"net/http"
+
 	// "io"
 
 	"github.com/disintegration/imaging"
+	"github.com/labstack/echo/v4"
 )
 
-type ImageUser struct {
-	ImageKTP []byte `json:"image_ktp" `
-}
+// type ImageUser struct {
+// 	ImageKTP []byte `json:"image_ktp" `
+// }
 
 func main() {
-	src, err := imaging.Open("original/6.jpg", imaging.AutoOrientation(true))
 
-	if err != nil {
-		// Handle errors while opening the image
-		fmt.Printf("failed to open image: %v\n", err)
-		return
+	e := echo.New()
+	e.GET("/", (
+		func(c echo.Context) error {
+
+			imageUser := c.Get("dataFile")
+			Image := imageUser.([]byte)
+
+			Imageuser := base64.StdEncoding.EncodeToString(Image)
+			return c.JSON(http.StatusOK, Imageuser)
+		}))
+	e.Logger.Fatal(e.Start(":1323"))
+}
+
+func UploadFile(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		files, err := c.FormFile("image")
+
+		f, _ := files.Open()
+
+		defer f.Close()
+		imgpng, _ := png.Decode(f)
+		fmt.Println(imgpng)
+		// defer imgpng.Close()
+		img, _ := jpeg.Decode(f)
+
+		srcs := imaging.Resize(img, 800, 0, imaging.Lanczos)
+
+		// defer src.Close()
+		buf := new(bytes.Buffer)
+		err = jpeg.Encode(buf, srcs, nil)
+		if err != nil {
+			fmt.Println("Error reading file:", err)
+			return err
+		}
+
+		filesa := buf.Bytes()
+
+		c.Set("dataFile", filesa)
+		return next(c)
 	}
-
-	// Resize the cropped image to width = 200px preserving the aspect ratio.
-	src = imaging.Resize(src, 800, 0, imaging.Lanczos)
-
-	// defer src.Close()
-	buf := new(bytes.Buffer)
-	err = jpeg.Encode(buf, src, nil)
-	if err != nil {
-		fmt.Println("Error reading file:", err)
-		return
-	}
-
-	files := buf.Bytes()
-
-	catchmodels := ImageUser{
-		ImageKTP: files,
-	}
-
-	cam1 := base64.StdEncoding.EncodeToString(catchmodels.ImageKTP)
-
-	fmt.Println(cam1)
-
 }
