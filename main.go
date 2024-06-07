@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"image/jpeg"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/disintegration/imaging"
 	"github.com/labstack/echo/v4"
@@ -33,11 +35,20 @@ func UploadFile(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		if file != nil {
-
 			imageBytes, err := file.Open()
+
 			if err != nil {
 				return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Error opening uploaded file: %v", err))
 			}
+			// Check for valid file type (JPG or PNG)
+			if contentType := file.Header.Get("Content-Type"); !(contentType == "image/jpeg" || contentType == "image/png") {
+				return c.JSON(http.StatusBadRequest, "Invalid file type. Only JPG and PNG are allowed")
+			}
+
+			imageSize := resizeImage(file.Size)
+
+			fmt.Println(imageSize, "ukuran")
+			fmt.Println(file.Size, "ukuran size")
 
 			defer imageBytes.Close()
 
@@ -53,7 +64,11 @@ func UploadFile(next echo.HandlerFunc) echo.HandlerFunc {
 				return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid image format: %v", err))
 			}
 
-			srcs := imaging.Resize(img, 500, 0, imaging.Lanczos)
+			srcs := imaging.Resize(img, imageSize, 0, imaging.Lanczos)
+
+			ok := strconv.Itoa(int(time.Now().Add(time.Second).Unix()))
+
+			imaging.Save(srcs, "3L/"+ok+".jpg")
 
 			buf := new(bytes.Buffer)
 			err = jpeg.Encode(buf, srcs, nil)
@@ -62,10 +77,24 @@ func UploadFile(next echo.HandlerFunc) echo.HandlerFunc {
 			}
 
 			filesa := buf.Bytes()
+
+			fmt.Println(len(filesa), "size terakhir")
 			c.Set("dataFile", filesa)
 			return next(c)
 		}
 		c.Set("dataFile", "")
 		return next(c)
 	}
+}
+
+func resizeImage(fileSize int64) int {
+
+	if fileSize == 0 {
+		return 0
+	}
+
+	if fileSize > 10*1000000 {
+		return 500
+	}
+	return 800
 }
