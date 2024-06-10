@@ -2,12 +2,18 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
+	// "encoding/base64"
 	"fmt"
 	"image/jpeg"
+	"io"
 	"net/http"
-	"strconv"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
+
+	// "strconv"
+	// "time"
 
 	"github.com/disintegration/imaging"
 	"github.com/labstack/echo/v4"
@@ -16,15 +22,65 @@ import (
 func main() {
 
 	e := echo.New()
-	e.POST("/", UploadFile(func(c echo.Context) error {
+	e.POST("/", UploadFiles(func(c echo.Context) error {
 
-		imageUser := c.Get("dataFile")
-		Image := imageUser.([]byte)
+		// imageUser := c.Get("dataFile")
+		// Image := imageUser.([]byte)
 
-		Imageuser := base64.StdEncoding.EncodeToString(Image)
-		return c.JSON(http.StatusOK, Imageuser)
+		// Imageuser := base64.StdEncoding.EncodeToString(Image)
+		return c.JSON(http.StatusOK, "Imageuser")
 	}))
 	e.Logger.Fatal(e.Start(":1323"))
+}
+func UploadFiles(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		form, err := c.MultipartForm()
+		if err != nil {
+			return echo.ErrBadRequest
+		}
+
+		files, ok := form.File["images"]
+		if !ok {
+			return echo.ErrNotFound
+		}
+		// filePaths := []string{}
+		for _, file := range files {
+			// Extract file extension
+			fileExt := filepath.Ext(file.Filename)
+
+			// Generate unique filename
+			originalFileName := strings.TrimSuffix(filepath.Base(file.Filename), filepath.Ext(file.Filename))
+			now := time.Now()
+			filename := strings.ReplaceAll(strings.ToLower(originalFileName), " ", "-") + "-" + fmt.Sprintf("%v", now.Unix()) + fileExt
+
+			// Create destination file path
+			filePath := "./3L/" + filename
+
+			// filePaths = append(filePaths, filePath)
+
+			// Open destination file
+			out, err := os.Create(filePath)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			}
+			defer out.Close()
+
+			// Open uploaded file
+			readerFile, err := file.Open()
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			}
+			defer readerFile.Close()
+
+			// Copy uploaded file content
+			_, err = io.Copy(out, readerFile)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			}
+		}
+		c.Set("dataFile", "")
+		return next(c)
+	}
 }
 
 func UploadFile(next echo.HandlerFunc) echo.HandlerFunc {
@@ -66,9 +122,9 @@ func UploadFile(next echo.HandlerFunc) echo.HandlerFunc {
 
 			srcs := imaging.Resize(img, imageSize, 0, imaging.Lanczos)
 
-			ok := strconv.Itoa(int(time.Now().Add(time.Second).Unix()))
+			// ok := strconv.Itoa(int(time.Now().Add(time.Second).Unix()))
 
-			imaging.Save(srcs, "3L/"+ok+".jpg")
+			// imaging.Save(srcs, "3L/"+ok+".jpg")
 
 			buf := new(bytes.Buffer)
 			err = jpeg.Encode(buf, srcs, nil)
