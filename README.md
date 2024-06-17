@@ -12,5 +12,4 @@ After images are compressed, Action will update pull request with compressed ima
 
 
 compression_mode: lossy, lossless or balanced
-compression_level  represents the compression level. Integer value has to be in range 65-100
-strip_tags removes optional metadata
+compression_level  represents the compression level. 
